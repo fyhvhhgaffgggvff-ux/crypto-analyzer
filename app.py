@@ -6,72 +6,65 @@ from plotly.subplots import make_subplots
 import yfinance as yf
 
 # -----------------------------------------------------------------------------
-# 1. إعدادات الصفحة والأسلوب البصري (CSS Custom Styling)
+# 1. إعدادات الصفحة والتصميم البصري (CSS)
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="منصة التحليل المالي وتتبع الهوامير",
-    page_icon="🦅",
+    page_title="منصة الذكاء الاصطناعي وتتبع الهوامير",
+    page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# إضافة تنسيقات CSS مخصصة لتحسين شكل المكونات
 st.markdown("""
 <style>
-    /* تنسيق الخلية الرئيسية والبطاقات */
-    .stApp {
-        background-color: #0e1117;
-    }
+    .stApp { background-color: #0e1117; }
     .metric-card {
         background: linear-gradient(135deg, #1e2638 0%, #111827 100%);
         border: 1px solid #2d3748;
         border-radius: 12px;
-        padding: 18px;
+        padding: 16px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     }
-    .metric-title {
-        color: #9ca3af;
-        font-size: 14px;
-        margin-bottom: 6px;
+    .metric-title { color: #9ca3af; font-size: 13px; margin-bottom: 4px; }
+    .metric-value { color: #ffffff; font-size: 22px; font-weight: bold; }
+    .metric-sub { font-size: 12px; margin-top: 4px; }
+    
+    .ai-box-buy {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 95, 70, 0.3));
+        border: 1px solid #10b981;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
-    .metric-value {
-        color: #ffffff;
-        font-size: 24px;
-        font-weight: bold;
+    .ai-box-sell {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(153, 27, 27, 0.3));
+        border: 1px solid #ef4444;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
-    .metric-sub {
-        font-size: 13px;
-        margin-top: 4px;
-    }
-    .status-badge-green {
-        background-color: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-weight: bold;
-    }
-    .status-badge-red {
-        background-color: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-weight: bold;
+    .ai-box-hold {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(180, 83, 9, 0.3));
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. الهيدر الرئيسي للموقع
+# 2. الهيدر الرئيسي
 # -----------------------------------------------------------------------------
-st.markdown("<h1 style='text-align: right; color: #f3f4f6;'>🦅 منصة التحليل المالي وتتبع حركة الهوامير الذكية</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: right; color: #9ca3af; font-size: 15px;'>نظام تحليلي متكامل يجمع بين التحليل الفني، رصد السيولة الكبيرة، ومؤشرات التداول الذكية.</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: right; color: #f3f4f6;'>🤖 منصة التحليل الذكي وتتبع حركة الهوامير (AI Trading Platform)</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: right; color: #9ca3af; font-size: 14px;'>مدعومة بمحرك تحليل البيانات الفنية والرصد اللحظي لسيولة صانعي السوق.</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# 3. إعدادات شريط الأدوات الجانبي (Sidebar)
+# 3. إعدادات لوحة التحكم الجانبية
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("<h2 style='text-align: right;'>⚙️ لوحة التحكم</h2>", unsafe_allow_html=True)
+st.sidebar.markdown("<h2 style='text-align: right;'>⚙️ لوحة التحكم والتنبيهات</h2>", unsafe_allow_html=True)
 
 preset_coins = {
     "🐕 Dogecoin (DOGE)": "DOGE",
@@ -86,7 +79,7 @@ preset_coins = {
 selected_option = st.sidebar.selectbox("اختر العملة المراد تحليلها", list(preset_coins.keys()), index=0)
 
 if preset_coins[selected_option] == "CUSTOM":
-    symbol_input = st.sidebar.text_input("ادخل رمز العملة (مثال: ADA, NEAR)", value="DOGE").upper().strip()
+    symbol_input = st.sidebar.text_input("ادخل رمز العملة", value="DOGE").upper().strip()
 else:
     symbol_input = preset_coins[selected_option]
 
@@ -96,10 +89,13 @@ interval = st.sidebar.selectbox("الإطار الزمني (Timeframe)", ["1m", 
 period = st.sidebar.selectbox("النطاق الزمني التاريخي", ["1d", "5d", "1mo", "3mo", "1y"], index=2)
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **نصيحة:** استخدم الإطار الزمني `1h` أو `1d` للحصول على أدق إشارات للسيولة والهوامير.")
+st.sidebar.markdown("### 🔔 خيارات التنبيهات الذكية")
+alert_whale = st.sidebar.checkbox("تنبيه سيولة الهوامير ⭐️", value=True)
+alert_rsi = st.sidebar.checkbox("تنبيه مناطق RSI الحرجة 📈", value=True)
+alert_ma = st.sidebar.checkbox("تنبيه تقاطع المتوسطات (SMA) 🔄", value=True)
 
 # -----------------------------------------------------------------------------
-# 4. دالة جلب البيانات عبر Yahoo Finance
+# 4. جلب البيانات وحساب المؤشرات
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def fetch_market_data(ticker, period, interval):
@@ -125,9 +121,6 @@ def fetch_market_data(ticker, period, interval):
     except Exception as e:
         return None, str(e)
 
-# -----------------------------------------------------------------------------
-# 5. دالة حساب المؤشرات الفنية ورصد السيولة
-# -----------------------------------------------------------------------------
 def calculate_indicators(df):
     df['SMA_20'] = df['close'].rolling(window=20).mean()
     df['SMA_50'] = df['close'].rolling(window=50).mean()
@@ -139,7 +132,7 @@ def calculate_indicators(df):
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # Whale Detection (Spike)
+    # Whale Spikes
     mean_volume = df['volume'].rolling(window=20).mean()
     std_volume = df['volume'].rolling(window=20).std()
     df['Whale_Activity'] = df['volume'] > (mean_volume + 2.2 * std_volume)
@@ -147,9 +140,64 @@ def calculate_indicators(df):
     return df
 
 # -----------------------------------------------------------------------------
-# 6. جلب البيانات والتنفيذ
+# 5. محرك الذكاء الاصطناعي (AI Signal Generator)
 # -----------------------------------------------------------------------------
-with st.spinner(f"جاري جلب البيانات وتحليل {ticker_symbol}..."):
+def run_ai_analysis(df):
+    latest = df.iloc[-1]
+    prev = df.iloc[-2] if len(df) > 1 else latest
+    
+    score = 0 # نقاط التقييم: +1 للشراء, -1 للبيع
+    reasons = []
+    
+    # 1. تحليل SMA 20 vs 50
+    if latest['close'] > latest['SMA_20'] > latest['SMA_50']:
+        score += 2
+        reasons.append("السعر يتحرك في اتجاه صاعد قوي فوق متوسطات 20 و 50.")
+    elif latest['close'] < latest['SMA_20'] < latest['SMA_50']:
+        score -= 2
+        reasons.append("السعر في مسار هابط تحت المتوسطات الرئيسية.")
+    else:
+        reasons.append("السعر في تذبذب عرضي بالقرب من المتوسطات.")
+
+    # 2. تحليل RSI
+    rsi = latest['RSI']
+    if rsi < 35:
+        score += 2
+        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) يظهر وصول السعر لمناطق تشبع بيعي وزهيدة جداً (فرصة ارتداد).")
+    elif rsi > 70:
+        score -= 2
+        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) يظهر وصول السعر لمناطق تضخم وتشبع شرائي مرتفع.")
+    else:
+        reasons.append(f"مؤشر RSI في المنطقة المتوازنة المحايدة ({rsi:.1f}).")
+
+    # 3. تحليل سيولة الهوامير
+    if latest['Whale_Activity']:
+        score += 1.5
+        reasons.append("تم رصد ضخ سيولة مفاجئة من الهوامير في الشمعة الأخيرة!")
+
+    # تحديد القرار النهائي
+    if score >= 2:
+        decision = "BUY"
+        title = "🟢 قرار الذكاء الاصطناعي: فرصة شراء / تجميع مناسبة"
+        box_class = "ai-box-buy"
+    elif score <= -2:
+        decision = "SELL"
+        title = "🔴 قرار الذكاء الاصطناعي: حذر من البيع / مخاطرة مرتفعة"
+        box_class = "ai-box-sell"
+    else:
+        decision = "HOLD"
+        title = "🟡 قرار الذكاء الاصطناعي: انتظار ومراقبة (حركة محايدة)"
+        box_class = "ai-box-hold"
+
+    support = df['low'].tail(20).min()
+    resistance = df['high'].tail(20).max()
+    
+    return decision, title, reasons, box_class, support, resistance
+
+# -----------------------------------------------------------------------------
+# 6. التنفيذ وتوليد الواجهة
+# -----------------------------------------------------------------------------
+with st.spinner(f"جاري تحليل حركة سوق {ticker_symbol} بواسطة الذكاء الاصطناعي..."):
     df, error = fetch_market_data(ticker_symbol, period, interval)
 
 if error or df is None:
@@ -163,131 +211,99 @@ else:
     change_color = "#10b981" if price_change >= 0 else "#ef4444"
     change_icon = "▲" if price_change >= 0 else "▼"
     
-    # عرض المؤشرات في كروت مُنسقة
+    # -------------------------------------------------------------------------
+    # قسم بطاقات المعلومات الرئيسية
+    # -------------------------------------------------------------------------
     c1, c2, c3, c4 = st.columns(4)
-    
     fmt_price = f"${latest['close']:,.5f}" if latest['close'] < 1 else f"${latest['close']:,.2f}"
     
     with c1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">💰 السعر الحالي</div>
-            <div class="metric-value">{fmt_price}</div>
-            <div class="metric-sub" style="color: {change_color};">{change_icon} {price_change:+.2f}%</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        st.markdown(f'<div class="metric-card"><div class="metric-title">💰 السعر الحالي</div><div class="metric-value">{fmt_price}</div><div class="metric-sub" style="color: {change_color};">{change_icon} {price_change:+.2f}%</div></div>', unsafe_allow_html=True)
     with c2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">📊 حجم التداول (Volume)</div>
-            <div class="metric-value">{latest['volume']:,.0f}</div>
-            <div class="metric-sub" style="color: #6b7280;">نشاط تداول الشمعة</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        st.markdown(f'<div class="metric-card"><div class="metric-title">📊 التداول (Volume)</div><div class="metric-value">{latest["volume"]:,.0f}</div><div class="metric-sub" style="color: #6b7280;">حجم الشمعة الحالية</div></div>', unsafe_allow_html=True)
     with c3:
-        rsi_val = latest['RSI']
-        rsi_str = f"{rsi_val:.1f}" if not np.isnan(rsi_val) else "N/A"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">📈 مؤشر القوة النسبية RSI</div>
-            <div class="metric-value">{rsi_str}</div>
-            <div class="metric-sub" style="color: #6b7280;">مقياس تشبع السوق</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        rsi_str = f"{latest['RSI']:.1f}" if not np.isnan(latest['RSI']) else "N/A"
+        st.markdown(f'<div class="metric-card"><div class="metric-title">📈 RSI (14)</div><div class="metric-value">{rsi_str}</div><div class="metric-sub" style="color: #6b7280;">مقياس الزخم</div></div>', unsafe_allow_html=True)
     with c4:
-        whale_text = "🚨 ضخ سيولة ضخم" if latest['Whale_Activity'] else "🟢 طبيعي"
-        badge_style = "status-badge-red" if latest['Whale_Activity'] else "status-badge-green"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-title">🐋 حركة الهوامير (Whales)</div>
-            <div style="margin-top: 10px;"><span class="{badge_style}">{whale_text}</span></div>
-            <div class="metric-sub" style="color: #6b7280; margin-top: 12px;">حالة السيولة الكبيرة</div>
-        </div>
-        """, unsafe_allow_html=True)
+        whale_status = "🚨 دخول سيولة" if latest['Whale_Activity'] else "🟢 طبيعي"
+        st.markdown(f'<div class="metric-card"><div class="metric-title">🐋 نشاط الهوامير</div><div class="metric-value" style="font-size: 18px;">{whale_status}</div><div class="metric-sub" style="color: #6b7280;">حالة التداول الضخم</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # 7. الرسم البياني التفاعلي التوسع والمحسّن (Plotly)
+    # قسم التنبيهات الفورية (Smart Live Alerts Bar)
+    # -------------------------------------------------------------------------
+    if alert_whale and latest['Whale_Activity']:
+        st.error("🚨 **تنبيه سيولة عاجل!** تم رصد قفزة استثنائية في حجم التداول (دخول صانع سوق/هامور).")
+    
+    if alert_rsi:
+        if latest['RSI'] > 70:
+            st.warning("⚠️ **تنبيه RSI:** السعر يتداول في منطقة تشبع شرائي زائد (Overbought).")
+        elif latest['RSI'] < 30:
+            st.success("🟢 **تنبيه RSI:** السعر يتداول في منطقة تشبع بيعي شديد (Oversold - منطقة تجميع).")
+
+    if alert_ma:
+        if latest['close'] > latest['SMA_20'] and prev['close'] <= prev['SMA_20']:
+            st.info("🔄 **تنبيه تقاطع:** السعر اخترق المتوسط المتحرك 20 لأعلى.")
+
+    # -------------------------------------------------------------------------
+    # قسم تحليل الذكاء الاصطناعي (AI Analysis Card)
+    # -------------------------------------------------------------------------
+    decision, ai_title, reasons, box_class, support, resistance = run_ai_analysis(df)
+    
+    fmt_sup = f"${support:,.5f}" if support < 1 else f"${support:,.2f}"
+    fmt_res = f"${resistance:,.5f}" if resistance < 1 else f"${resistance:,.2f}"
+
+    st.markdown(f"""
+    <div class="{box_class}">
+        <h3 style="margin-top:0; color:#ffffff;">{ai_title}</h3>
+        <p style="font-size: 14px; color: #e5e7eb;"><b>أسباب التوصية واستنتاج الخوارزمية:</b></p>
+        <ul style="color: #d1d5db; font-size: 14px;">
+            {''.join([f'<li>{r}</li>' for r in reasons])}
+        </ul>
+        <hr style="border-color: rgba(255,255,255,0.1);">
+        <div style="display: flex; justify-content: space-around; text-align: center; margin-top: 10px;">
+            <div><b>📉 مستوى الدعم المتوقع:</b> <span style="color:#10b981;">{fmt_sup}</span></div>
+            <div><b>📈 مستوى المقاومة المتوقع:</b> <span style="color:#ef4444;">{fmt_res}</span></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # الرسم البياني التفاعلي المتوسع
     # -------------------------------------------------------------------------
     fig = make_subplots(
         rows=2, cols=1, 
         shared_xaxes=True, 
         vertical_spacing=0.06, 
         row_heights=[0.72, 0.28],
-        subplot_titles=(f"📈 حركة الأسعار والمعدلات المتحركة ({ticker_symbol})", "📊 أحجام التداول وتنبيهات السيولة الاستثنائية ⭐️")
+        subplot_titles=(f"📈 الشارت التفاعلي لـ {ticker_symbol}", "📊 أحجام التداول وتنبيهات السيولة الاستثنائية ⭐️")
     )
 
-    # الشموع اليابانية
     fig.add_trace(go.Candlestick(
-        x=df['datetime'],
-        open=df['open'], high=df['high'],
-        low=df['low'], close=df['close'],
-        name="السعر",
-        increasing_line_color='#10b981', 
-        decreasing_line_color='#ef4444'
+        x=df['datetime'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+        name="السعر", increasing_line_color='#10b981', decreasing_line_color='#ef4444'
     ), row=1, col=1)
 
-    # المتوسطات المتحركة
-    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_20'], mode='lines', name='متوسط 20 (SMA)', line=dict(color='#f59e0b', width=1.5)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_50'], mode='lines', name='متوسط 50 (SMA)', line=dict(color='#3b82f6', width=1.5)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_20'], mode='lines', name='SMA 20', line=dict(color='#f59e0b', width=1.5)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_50'], mode='lines', name='SMA 50', line=dict(color='#3b82f6', width=1.5)), row=1, col=1)
 
-    # الفوليوم
     colors = ['#ef4444' if df['open'].iloc[i] > df['close'].iloc[i] else '#10b981' for i in range(len(df))]
     fig.add_trace(go.Bar(x=df['datetime'], y=df['volume'], marker_color=colors, name="Volume", opacity=0.8), row=2, col=1)
 
-    # إضافة نجوم تتبع الهوامير
     whales_df = df[df['Whale_Activity']]
     if not whales_df.empty:
         fig.add_trace(go.Scatter(
-            x=whales_df['datetime'], 
-            y=whales_df['volume'],
-            mode='markers',
-            marker=dict(color='#fbbf24', size=14, symbol='star', line=dict(color='#ffffff', width=1)),
-            name='⭐️ تنبيه سيولة ضخمة'
+            x=whales_df['datetime'], y=whales_df['volume'],
+            mode='markers', marker=dict(color='#fbbf24', size=14, symbol='star', line=dict(color='#ffffff', width=1)),
+            name='⭐️ سيولة هوامير'
         ), row=2, col=1)
 
     fig.update_layout(
-        height=680,
-        autosize=True,
-        xaxis_rangeslider_visible=False,
-        template="plotly_dark",
-        paper_bgcolor='#0e1117',
-        plot_bgcolor='#111827',
-        margin=dict(l=15, r=15, t=40, b=15),
+        height=680, autosize=True, xaxis_rangeslider_visible=False,
+        template="plotly_dark", paper_bgcolor='#0e1117', plot_bgcolor='#111827',
+        margin=dict(l=10, r=10, t=35, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
-    
-    fig.update_xaxes(gridcolor='#1f2937', showgrid=True)
-    fig.update_yaxes(gridcolor='#1f2937', showgrid=True)
 
     st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True})
-
-    # -------------------------------------------------------------------------
-    # 8. قسم التوصية الذكية والقرار
-    # -------------------------------------------------------------------------
-    st.markdown("<h3 style='text-align: right;'>💡 التوصية والتحليل الفني الذكي</h3>", unsafe_allow_html=True)
-    
-    col_rec1, col_rec2 = st.columns(2)
-    
-    with col_rec1:
-        st.markdown("##### 📌 وضع المؤشرات الفنية (RSI):")
-        if not np.isnan(rsi_val):
-            if rsi_val > 70:
-                st.warning("⚠️ **تشبع شرائي (Overbought):** السعر متضخم حالياً. ينصح بانتظار تصحيح ولا ينصح بالدخول شرائياً الآن.")
-            elif rsi_val < 30:
-                st.success("🟢 **تشبع بيعي (Oversold):** السعر في مناطق ارتداد صعودية ممتازة. فرصة مناسبة لمراقبة الشراء.")
-            else:
-                st.info("⚖️ **منطقة محايدة:** حركة السعر متوازنة حالياً. يفضل متابعة كسر المقاومات أو اختراق الدعم.")
-        else:
-            st.write("جاري تحميل بيانات المؤشر...")
-
-    with col_rec2:
-        st.markdown("##### 🐋 نشاط السيولة والهوامير:")
-        if latest['Whale_Activity']:
-            st.error("🚨 **تنبيه هامور!** تم رصد ضخ سيولة استثنائية في هذه الشمعة. يرجى توخي الحذر من تقلبات حادة سريعة.")
-        else:
-            st.write("🟢 **استقرار:** السيولة الحالية ضمن معدلاتها الطبيعية ولا يوجد اندفاع مفاجئ لصانع السوق.")
