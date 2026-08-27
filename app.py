@@ -7,9 +7,9 @@ import requests
 import ccxt
 from datetime import datetime
 
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
 # 1. إعدادات الصفحة والواجهة
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="منصة التحليلات المالية الذكية وتتبع الهوامير",
     page_icon="🦅",
@@ -17,188 +17,139 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# تنسيق الواجهة يدعم اللغة العربية
-st.markdown("""
-    <style>
-    .main { text-align: right; direction: rtl; }
-    div[data-testid="stMetricValue"] { font-size: 24px; }
-    </style>
-    """, unsafe_allow_html=True)
-
 st.title("🦅 منصة التحليل المالي وتتبع حركة الهوامير الذكية")
 st.caption("نظام تحليلي متكامل يجمع بين التحليل الفني، مشاعر التواصل الاجتماعي، وحركة السيولة الكبيرة.")
 
-# ---------------------------------------------------------
-# 2. القائمة الجانبية (Sidebar)
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 2. إعدادات شريط الأدوات الجانبي (Sidebar)
+# -----------------------------------------------------------------------------
 st.sidebar.header("⚙️ إعدادات التحليل")
-symbol_choice = st.sidebar.selectbox("اختر زوج التداول:", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"], index=0)
-timeframe = st.sidebar.selectbox("الإطار الزمني (Timeframe):", ["1h", "4h", "1d"], index=2)
-rsi_period = st.sidebar.slider("فترة مؤشر RSI:", 5, 30, 14)
 
-# ---------------------------------------------------------
-# 3. دالة جلب البيانات الفنية (Market Data Engine)
-# ---------------------------------------------------------
+# استخدام Bybit بدلاً من Binance لتفادي الحظر الجغرافي
+symbol = st.sidebar.text_input("رمز الزوج (مثل SOL/USDT أو BTC/USDT)", value="SOL/USDT").upper()
+timeframe = st.sidebar.selectbox("الإطار الزمني", ["1m", "5m", "15m", "1h", "4h", "1d"], index=3)
+limit = st.sidebar.slider("عدد الشموع المطلوبة للتحليل", min_value=50, max_value=500, value=150)
+
+# -----------------------------------------------------------------------------
+# 3. دالة جلب البيانات من منصة Bybit
+# -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
-def fetch_market_data(symbol, tf):
+def fetch_market_data(symbol, timeframe, limit):
     try:
-        exchange = ccxt.binance({'enableRateLimit': True})
-        bars = exchange.fetch_ohlcv(symbol, timeframe=tf, limit=100)
-        df = pd.DataFrame(bars, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        
-        # حساب المؤشرات الفنية
-        df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
-        df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
-        
-        # حساب RSI
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=rsi_period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_period).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
-        
-        return df
+        exchange = ccxt.bybit({
+            'enableRateLimit': True,
+            'options': {'defaultType': 'spot'}
+        })
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
+        return df, None
     except Exception as e:
-        st.error(f"خطأ في جلب بيانات السوق: {e}")
-        return pd.DataFrame()
+        return None, str(e)
 
-# ---------------------------------------------------------
-# 4. دالة المشاعر وتتبع الهوامير (Whale & Social Sentiment Engine)
-# ---------------------------------------------------------
-@st.cache_data(ttl=300)
-def fetch_sentiment_and_whales():
-    # 1. مؤشر الخوف والجشع (Fear & Greed)
-    fng_value, fng_status = 50, "Neutral"
-    try:
-        res = requests.get("https://api.alternative.me/fng/").json()
-        fng_value = int(res['data'][0]['value'])
-        fng_status = res['data'][0]['value_classification']
-    except:
-        pass
-        
-    # 2. محاكاة حركة تدفقات الهوامير (Exchange Netflow Indicator)
-    # ملاحظة: في النسخة الإنتاجية يتم الربط بـ Whale-Alert API أو Glassnode API
-    netflow_sim = np.random.choice(["تجميع ضخم (Accumulation 🟢)", "توازن سيولة (Neutral 🟡)", "تصريف وتدفق للمنصات (Outflow/Dump 🔴)"], p=[0.4, 0.4, 0.2])
+# -----------------------------------------------------------------------------
+# 4. دالة حساب المؤشرات الفنية
+# -----------------------------------------------------------------------------
+def calculate_indicators(df):
+    # المتوسطات المتحركة
+    df['SMA_20'] = df['close'].rolling(window=20).mean()
+    df['SMA_50'] = df['close'].rolling(window=50).mean()
     
-    return fng_value, fng_status, netflow_sim
-
-# ---------------------------------------------------------
-# 5. جلب الأخبار الحية من التواصل والسوق
-# ---------------------------------------------------------
-@st.cache_data(ttl=600)
-def fetch_crypto_news():
-    try:
-        url = "https://cryptopanic.com/api/v1/posts/?auth_token=free_tier&kind=news"
-        res = requests.get(url).json()
-        results = res.get('results', [])[:5]
-        return results
-    except:
-        return []
-
-# تحميل البيانات
-df = fetch_market_data(symbol_choice, timeframe)
-fng_val, fng_stat, whale_action = fetch_sentiment_and_whales()
-
-if not df.empty:
-    latest_close = df.iloc[-1]['close']
-    latest_rsi = df.iloc[-1]['RSI']
-    latest_ema20 = df.iloc[-1]['EMA_20']
-    latest_ema50 = df.iloc[-1]['EMA_50']
+    # مؤشر القوة النسبية RSI
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
     
-    # ---------------------------------------------------------
-    # 6. شاشة المؤشرات السريعة (KPI Dashboard)
-    # ---------------------------------------------------------
+    # تتبع حركة السيولة/الهوامير (Volume Spike Detection)
+    mean_volume = df['volume'].rolling(window=20).mean()
+    std_volume = df['volume'].rolling(window=20).std()
+    df['Whale_Activity'] = df['volume'] > (mean_volume + 2 * std_volume)
+    
+    return df
+
+# -----------------------------------------------------------------------------
+# 5. تنفيـذ جلب البيانات والعرض
+# -----------------------------------------------------------------------------
+with st.spinner("جاري جلب البيانات وتحليل السوق من Bybit..."):
+    df, error = fetch_market_data(symbol, timeframe, limit)
+
+if error:
+    st.error(f"خطأ في جلب بيانات السوق عبر Bybit: {error}")
+else:
+    df = calculate_indicators(df)
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
+    
+    # عرض المؤشرات السريعة (KPIs)
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("السعر الحالي", f"${latest_close:,.2f}")
-    with col2:
-        st.metric("مؤشر RSI", f"{latest_rsi:.1f}")
-    with col3:
-        st.metric("مشاعر التواصل والبحث", f"{fng_val}/100", fng_stat)
-    with col4:
-        st.metric("حركة المحافظ الضخمة (الهوامير)", whale_action)
-        
-    st.divider()
+    price_change = ((latest['close'] - prev['close']) / prev['close']) * 100
+    
+    col1.metric("السعر الحالي", f"${latest['close']:,.2f}", f"{price_change:+.2f}%")
+    col2.metric("حجم التداول (Volume)", f"{latest['volume']:,.0f}")
+    col3.metric("مؤشر RSI (14)", f"{latest['RSI']:.1f}")
+    
+    whale_status = "🚨 نشاط مكثف (دخل هامور)" if latest['Whale_Activity'] else "🟢 طبيعي"
+    col4.metric("حركة السيولة الكبيرة", whale_status)
 
-    # ---------------------------------------------------------
-    # 7. محرك اتخاذ القرار الذكي (Smart Decision Engine)
-    # ---------------------------------------------------------
-    st.subheader("🤖 إشارة الذكاء الاصطناعي والدخول/الخروج")
-    
-    score = 0
-    # شروط التحليل الفني
-    if latest_rsi < 35: score += 2  # تشبع بيعي
-    elif latest_rsi > 70: score -= 2  # تشبع شرائي
-    
-    if latest_ema20 > latest_ema50: score += 1  # اتجاه صاعد
-    else: score -= 1  # اتجاه هابط
-    
-    # شروط المشاعر والهوامير
-    if fng_val < 30: score += 1  # خوف شديد = فرصة شراء
-    elif fng_val > 75: score -= 1  # جشع شديد = خطر تصحيح
-    
-    if "تجميع" in whale_action: score += 2
-    elif "تصريف" in whale_action: score -= 2
+    # -------------------------------------------------------------------------
+    # 6. الرسم البياني التفاعلي (Plotly Chart)
+    # -------------------------------------------------------------------------
+    fig = make_subplots(
+        rows=2, cols=1, 
+        shared_xaxes=True, 
+        vertical_spacing=0.03, 
+        row_heights=[0.7, 0.3],
+        subplot_titles=(f"الرسم البياني لـ {symbol}", "حجم التداول والسيولة")
+    )
 
-    # تحديد القرار ومستويات الأهداف
-    support_level = df['low'].tail(20).min()
-    resistance_level = df['high'].tail(20).max()
-    stop_loss = support_level * 0.98
-    target_price = latest_close + (latest_close - stop_loss) * 2
-
-    if score >= 3:
-        st.success(f"""
-        ### 🟢 إشارة دخول: شراء (STRONG BUY)
-        * **سبب الإشارة:** اتفق التحليل الفني مع تجميع الهوامير ومشاعر الخوف في السوق.
-        * **سعر الدخول المقترح:** ${latest_close:,.2f}
-        * **هدف جني الأرباح (Take Profit):** ${target_price:,.2f}
-        * **وقف الخسارة (Stop Loss):** ${stop_loss:,.2f}
-        """)
-    elif score <= -3:
-        st.error(f"""
-        ### 🔴 إشارة خروج / بيع (STRONG SELL)
-        * **سبب الإشارة:** تدفقات بيعية للهوامير مع وصول RSI إلى تشبع شرائي وجشع في السوق.
-        * **الدعم القادم:** ${support_level:,.2f}
-        """)
-    else:
-        st.info("""
-        ### 🟡 حالة الانتظار والمراقبة (NEUTRAL / HOLD)
-        * **توصية:** لا توجد إشارة واضحة ذات نسبة نجاح عالية الآن. يفضل الانتظار حتى كسر المقاومة أو وصول RSI لمناطق متطرفة.
-        """)
-
-    st.divider()
-
-    # ---------------------------------------------------------
-    # 8. الشارت التفاعلي للشموع اليابانية (Interactive Candlestick Chart)
-    # ---------------------------------------------------------
-    st.subheader("📈 الشارت التفاعلي والمؤشرات الفنية")
-    
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
-    
-    # الشموع والموفينجات
+    # شمعات اليابانية (Candlesticks)
     fig.add_trace(go.Candlestick(
-        x=df['timestamp'], open=df['open'], high=df['high'], low=df['low'], close=df['close'], name='السعر'
+        x=df['datetime'],
+        open=df['open'], high=df['high'],
+        low=df['low'], close=df['close'],
+        name="السعر"
     ), row=1, col=1)
-    
-    fig.add_trace(go.Scatter(x=df['timestamp'], y=df['EMA_20'], line=dict(color='orange', width=1), name='EMA 20'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df['timestamp'], y=df['EMA_50'], line=dict(color='blue', width=1), name='EMA 50'), row=1, col=1)
-    
-    # مؤشر RSI
-    fig.add_trace(go.Scatter(x=df['timestamp'], y=df['RSI'], line=dict(color='purple', width=1.5), name='RSI'), row=2, col=1)
-    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
-    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
 
-    fig.update_layout(height=600, template="plotly_dark", xaxis_rangeslider_visible=False)
+    # المتوسطات المتحركة
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_20'], mode='lines', name='SMA 20', line=dict(color='orange', width=1)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df['datetime'], y=df['SMA_50'], mode='lines', name='SMA 50', line=dict(color='blue', width=1)), row=1, col=1)
+
+    # أحجام التداول وتحديد الهوامير
+    colors = ['red' if df['open'].iloc[i] > df['close'].iloc[i] else 'green' for i in range(len(df))]
+    fig.add_trace(go.Bar(x=df['datetime'], y=df['volume'], marker_color=colors, name="Volume"), row=2, col=1)
+
+    # إبراز نقاط دخول الهوامير باللون الأصفر
+    whales_df = df[df['Whale_Activity']]
+    if not whales_df.empty:
+        fig.add_trace(go.Scatter(
+            x=whales_df['datetime'], 
+            y=whales_df['volume'],
+            mode='markers',
+            marker=dict(color='gold', size=10, symbol='star'),
+            name='تنبيه دخول سيولة ضخمة'
+        ), row=2, col=1)
+
+    fig.update_layout(
+        height=650, 
+        xaxis_rangeslider_visible=False,
+        template="plotly_dark",
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
-    # ---------------------------------------------------------
-    # 9. قسم الأخبار الحية
-    # ---------------------------------------------------------
-    st.subheader("📰 أحدث الأخبار وتغطيات وسائل التواصل")
-    news_items = fetch_crypto_news()
-    if news_items:
-        for item in news_items:
-            st.write(f"🔹 **[{item.get('title')}]({item.get('url')})** — *المصدر: {item.get('source', {}).get('title')}*")
+    # -------------------------------------------------------------------------
+    # 7. ملخص التحليل الفني والقرار الذكي
+    # -------------------------------------------------------------------------
+    st.subheader("💡 ملخص التوصية الذكية")
+    if latest['RSI'] > 70:
+        st.warning("⚠️ المؤشر في منطقة تشبع شرائي (Overbought)، احذر من التصحيح الهبوطي.")
+    elif latest['RSI'] < 30:
+        st.success("🟢 المؤشر في منطقة تشبع بيعي (Oversold)، فرصة ارتداد صعودي محتملة.")
     else:
-        st.write("جاري تحديث تغذية الأخبار...")
+        st.info("⚖️ حركة الحركة الفنية متوازنة حالياً في النطاق المحايد.")
+
+    if latest['Whale_Activity']:
+        st.error("🚨 تم اكتشاف دخول سيولة استثنائية (Whale Spike) في الشمعة الأخيرة!")
