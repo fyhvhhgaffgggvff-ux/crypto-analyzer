@@ -32,21 +32,21 @@ st.markdown("""
     
     .ai-box-buy {
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 95, 70, 0.3));
-        border: 1px solid #10b981;
+        border: 2px solid #10b981;
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
     }
     .ai-box-sell {
         background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(153, 27, 27, 0.3));
-        border: 1px solid #ef4444;
+        border: 2px solid #ef4444;
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
     }
     .ai-box-hold {
         background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(180, 83, 9, 0.3));
-        border: 1px solid #f59e0b;
+        border: 2px solid #f59e0b;
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 20px;
@@ -58,7 +58,7 @@ st.markdown("""
 # 2. الهيدر الرئيسي
 # -----------------------------------------------------------------------------
 st.markdown("<h1 style='text-align: right; color: #f3f4f6;'>🤖 منصة التحليل الذكي وتتبع حركة الهوامير (AI Trading Platform)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: right; color: #9ca3af; font-size: 14px;'>مدعومة بمحرك تحليل البيانات الفنية والرصد اللحظي لسيولة صانعي السوق.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: right; color: #9ca3af; font-size: 14px;'>مدعومة بمحرك تحليل البيانات الفنية والقرار المباشر لصفقات الشراء والبيع.</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
@@ -140,64 +140,76 @@ def calculate_indicators(df):
     return df
 
 # -----------------------------------------------------------------------------
-# 5. محرك الذكاء الاصطناعي (AI Signal Generator)
+# 5. محرك الذكاء الاصطناعي (AI Signal & Recommendation Generator)
 # -----------------------------------------------------------------------------
 def run_ai_analysis(df):
     latest = df.iloc[-1]
-    prev = df.iloc[-2] if len(df) > 1 else latest
+    curr_price = latest['close']
+    rsi = latest['RSI']
     
-    score = 0 # نقاط التقييم: +1 للشراء, -1 للبيع
+    score = 0
     reasons = []
     
-    # 1. تحليل SMA 20 vs 50
-    if latest['close'] > latest['SMA_20'] > latest['SMA_50']:
+    # 1. تحليل اتجاه المتوسطات المتحركة
+    if curr_price > latest['SMA_20'] > latest['SMA_50']:
         score += 2
-        reasons.append("السعر يتحرك في اتجاه صاعد قوي فوق متوسطات 20 و 50.")
-    elif latest['close'] < latest['SMA_20'] < latest['SMA_50']:
+        reasons.append("السعر أعلى من المتوسطات المتحركة (20 و 50) مما يشير إلى اتجاه صاعد قوي.")
+    elif curr_price < latest['SMA_20'] < latest['SMA_50']:
         score -= 2
-        reasons.append("السعر في مسار هابط تحت المتوسطات الرئيسية.")
+        reasons.append("السعر أسفل المتوسطات المتحركة (20 و 50) مما يشير إلى مسار هابط.")
     else:
-        reasons.append("السعر في تذبذب عرضي بالقرب من المتوسطات.")
+        reasons.append("السعر يتحرك في نطاق عرضي متذبذب بين المتوسطات.")
 
-    # 2. تحليل RSI
-    rsi = latest['RSI']
+    # 2. تحليل مؤشر الزخم RSI
     if rsi < 35:
         score += 2
-        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) يظهر وصول السعر لمناطق تشبع بيعي وزهيدة جداً (فرصة ارتداد).")
+        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) في منطقة تشبع بيعي شديد (السعر رخيص ومغري للشراء).")
     elif rsi > 70:
         score -= 2
-        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) يظهر وصول السعر لمناطق تضخم وتشبع شرائي مرتفع.")
+        reasons.append(f"مؤشر RSI عند ({rsi:.1f}) في منطقة تشبع شرائي زائد (السعر متضخم وخطرة الشراء حالياً).")
     else:
-        reasons.append(f"مؤشر RSI في المنطقة المتوازنة المحايدة ({rsi:.1f}).")
+        reasons.append(f"مؤشر RSI متوازن في المنطقة المحايدة ({rsi:.1f}).")
 
-    # 3. تحليل سيولة الهوامير
+    # 3. نشاط سيولة الهوامير
     if latest['Whale_Activity']:
         score += 1.5
-        reasons.append("تم رصد ضخ سيولة مفاجئة من الهوامير في الشمعة الأخيرة!")
-
-    # تحديد القرار النهائي
-    if score >= 2:
-        decision = "BUY"
-        title = "🟢 قرار الذكاء الاصطناعي: فرصة شراء / تجميع مناسبة"
-        box_class = "ai-box-buy"
-    elif score <= -2:
-        decision = "SELL"
-        title = "🔴 قرار الذكاء الاصطناعي: حذر من البيع / مخاطرة مرتفعة"
-        box_class = "ai-box-sell"
-    else:
-        decision = "HOLD"
-        title = "🟡 قرار الذكاء الاصطناعي: انتظار ومراقبة (حركة محايدة)"
-        box_class = "ai-box-hold"
+        reasons.append("تم رصد ضخ سيولة مفاجئة وعالية جداً من صانع السوق (دخول هوامير).")
 
     support = df['low'].tail(20).min()
     resistance = df['high'].tail(20).max()
     
-    return decision, title, reasons, box_class, support, resistance
+    fmt_curr = f"${curr_price:,.5f}" if curr_price < 1 else f"${curr_price:,.2f}"
+    fmt_sup = f"${support:,.5f}" if support < 1 else f"${support:,.2f}"
+    fmt_res = f"${resistance:,.5f}" if resistance < 1 else f"${resistance:,.2f}"
+
+    # تحديد القرار ومستويات الصفقة
+    if score >= 2:
+        decision_title = f"🟢 مناسب دخول صفقة شراء عند السعر الحالي ({fmt_curr})"
+        box_class = "ai-box-buy"
+        tp_price = curr_price * 1.05
+        sl_price = support * 0.98
+        fmt_tp = f"${tp_price:,.5f}" if tp_price < 1 else f"${tp_price:,.2f}"
+        fmt_sl = f"${sl_price:,.5f}" if sl_price < 1 else f"${sl_price:,.2f}"
+        summary_note = f"الصفقة المقترحة: دخول شراء من السعر الحالي <b>{fmt_curr}</b> | الهدف المتوقع: <b>{fmt_tp}</b> | وقف الخسارة: <b>{fmt_sl}</b>"
+    elif score <= -2:
+        decision_title = f"🔴 مناسب دخول صفقة بيع (Short) / جني أرباح عند السعر الحالي ({fmt_curr})"
+        box_class = "ai-box-sell"
+        tp_price = support * 1.01
+        sl_price = resistance * 1.02
+        fmt_tp = f"${tp_price:,.5f}" if tp_price < 1 else f"${tp_price:,.2f}"
+        fmt_sl = f"${sl_price:,.5f}" if sl_price < 1 else f"${sl_price:,.2f}"
+        summary_note = f"الصفقة المقترحة: دخول بيع/تفريغ من السعر الحالي <b>{fmt_curr}</b> | الهدف المتوقع: <b>{fmt_tp}</b> | وقف الخسارة: <b>{fmt_sl}</b>"
+    else:
+        decision_title = f"🟡 غير مناسب لدخول صفقة شراء أو بيع عند السعر الحالي ({fmt_curr})"
+        box_class = "ai-box-hold"
+        summary_note = f"السوق في حالة تذبذب ومحياد حالياً عند <b>{fmt_curr}</b>. ينصح بالانتظار والمراقبة لحين اختراق المقاومة عند <b>{fmt_res}</b> أو كسر الدعم عند <b>{fmt_sup}</b>."
+
+    return decision_title, reasons, box_class, fmt_sup, fmt_res, summary_note
 
 # -----------------------------------------------------------------------------
 # 6. التنفيذ وتوليد الواجهة
 # -----------------------------------------------------------------------------
-with st.spinner(f"جاري تحليل حركة سوق {ticker_symbol} بواسطة الذكاء الاصطناعي..."):
+with st.spinner(f"جاري جلب البيانات وتحليل {ticker_symbol} بواسطة الذكاء الاصطناعي..."):
     df, error = fetch_market_data(ticker_symbol, period, interval)
 
 if error or df is None:
@@ -211,9 +223,7 @@ else:
     change_color = "#10b981" if price_change >= 0 else "#ef4444"
     change_icon = "▲" if price_change >= 0 else "▼"
     
-    # -------------------------------------------------------------------------
-    # قسم بطاقات المعلومات الرئيسية
-    # -------------------------------------------------------------------------
+    # بطاقات المؤشرات الرقمية
     c1, c2, c3, c4 = st.columns(4)
     fmt_price = f"${latest['close']:,.5f}" if latest['close'] < 1 else f"${latest['close']:,.2f}"
     
@@ -231,7 +241,7 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # قسم التنبيهات الفورية (Smart Live Alerts Bar)
+    # التنبيهات الفورية (Live Alerts)
     # -------------------------------------------------------------------------
     if alert_whale and latest['Whale_Activity']:
         st.error("🚨 **تنبيه سيولة عاجل!** تم رصد قفزة استثنائية في حجم التداول (دخول صانع سوق/هامور).")
@@ -247,24 +257,24 @@ else:
             st.info("🔄 **تنبيه تقاطع:** السعر اخترق المتوسط المتحرك 20 لأعلى.")
 
     # -------------------------------------------------------------------------
-    # قسم تحليل الذكاء الاصطناعي (AI Analysis Card)
+    # ملخص التوصية الذكية والقرار المباشر من الذكاء الاصطناعي
     # -------------------------------------------------------------------------
-    decision, ai_title, reasons, box_class, support, resistance = run_ai_analysis(df)
-    
-    fmt_sup = f"${support:,.5f}" if support < 1 else f"${support:,.2f}"
-    fmt_res = f"${resistance:,.5f}" if resistance < 1 else f"${resistance:,.2f}"
+    ai_title, reasons, box_class, fmt_sup, fmt_res, summary_note = run_ai_analysis(df)
 
     st.markdown(f"""
     <div class="{box_class}">
-        <h3 style="margin-top:0; color:#ffffff;">{ai_title}</h3>
-        <p style="font-size: 14px; color: #e5e7eb;"><b>أسباب التوصية واستنتاج الخوارزمية:</b></p>
+        <h2 style="margin-top:0; color:#ffffff; font-size: 20px;">{ai_title}</h2>
+        <p style="font-size: 15px; color: #ffffff; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+            📌 <b>ملخص التوصية الذكية:</b> {summary_note}
+        </p>
+        <p style="font-size: 14px; color: #e5e7eb; margin-top: 15px;"><b>🔍 تحليل أسباب القرار الفني:</b></p>
         <ul style="color: #d1d5db; font-size: 14px;">
             {''.join([f'<li>{r}</li>' for r in reasons])}
         </ul>
         <hr style="border-color: rgba(255,255,255,0.1);">
         <div style="display: flex; justify-content: space-around; text-align: center; margin-top: 10px;">
-            <div><b>📉 مستوى الدعم المتوقع:</b> <span style="color:#10b981;">{fmt_sup}</span></div>
-            <div><b>📈 مستوى المقاومة المتوقع:</b> <span style="color:#ef4444;">{fmt_res}</span></div>
+            <div><b>📉 مستوى الدعم المتوقع:</b> <span style="color:#10b981; font-weight:bold;">{fmt_sup}</span></div>
+            <div><b>📈 مستوى المقاومة المتوقع:</b> <span style="color:#ef4444; font-weight:bold;">{fmt_res}</span></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
