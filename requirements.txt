@@ -2,11 +2,8 @@ streamlit
 pandas
 numpy
 plotly
-requests
-ccxt
-streamlit
-pandas
-numpy
-plotly
 yfinance
-
+ccxt
+requests
+requests[socks]
+PySocks
