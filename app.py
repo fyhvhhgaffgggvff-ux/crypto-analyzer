@@ -1,40 +1,30 @@
-name: Run Bybit Bot
+import os
+import ccxt
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 * * * *'
+# إعداد الاتصال بـ Bybit وتوجيهه عبر البروكسي
+exchange = ccxt.bybit({
+    'apiKey': os.getenv('BYBIT_API_KEY'),
+    'secret': os.getenv('BYBIT_API_SECRET'),
+    'enableRateLimit': True,
+    'proxies': {
+        'http': 'socks5://127.0.0.1:40000',
+        'https': 'socks5://127.0.0.1:40000',
+    },
+    'options': {
+        'defaultType': 'spot',
+    }
+})
 
-jobs:
-  run-bot:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+def main():
+    try:
+        ticker = exchange.fetch_ticker('BTC/USDT')
+        print(f"تم الاتصال بنجاح! سعر BTC الحالي: {ticker['last']} USDT")
+        
+        balance = exchange.fetch_balance()
+        usdt_free = balance.get('USDT', {}).get('free', 0)
+        print(f"رصيد USDT المتاح: {usdt_free}")
+    except Exception as e:
+        print("حدث خطأ أثناء الاتصال:", e)
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Setup Cloudflare Warp
-        run: |
-          curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-          sudo apt-get update && sudo apt-get install cloudflare-warp -y
-          sudo warp-cli --accept-tos registration new || true
-          sudo warp-cli --accept-tos mode proxy
-          sudo warp-cli --accept-tos proxy port 40000
-          sudo warp-cli --accept-tos connect
-          sleep 3
-
-      - name: Run Script
-        env:
-          BYBIT_API_KEY: ${{ secrets.BYBIT_API_KEY }}
-          BYBIT_API_SECRET: ${{ secrets.BYBIT_API_SECRET }}
-        run: |
-          python main.py
+if __name__ == "__main__":
+    main()
