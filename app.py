@@ -95,12 +95,12 @@ alert_rsi = st.sidebar.checkbox("تنبيه مناطق RSI الحرجة 📈", v
 alert_ma = st.sidebar.checkbox("تنبيه تقاطع المتوسطات (SMA) 🔄", value=True)
 
 # -----------------------------------------------------------------------------
-# 4. جلب البيانات وحساب المؤشرات
+# 4. جلب البيانات وحساب المؤشرات (مع حل مشكلة التعليق وقفل الاتصال)
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=120, show_spinner=False)
 def fetch_market_data(ticker, period, interval):
     try:
-        data = yf.download(tickers=ticker, period=period, interval=interval, progress=False)
+        data = yf.download(tickers=ticker, period=period, interval=interval, progress=False, timeout=10)
         if data.empty:
             return None, f"لم يتم العثور على بيانات للرمز {ticker}."
         
@@ -140,7 +140,7 @@ def calculate_indicators(df):
     return df
 
 # -----------------------------------------------------------------------------
-# 5. محرك الذكاء الاصطناعي (AI Signal & Recommendation Generator)
+# 5. محرك الذكاء الاصطناعي (AI Signal Generator)
 # -----------------------------------------------------------------------------
 def run_ai_analysis(df):
     latest = df.iloc[-1]
@@ -150,7 +150,6 @@ def run_ai_analysis(df):
     score = 0
     reasons = []
     
-    # 1. تحليل اتجاه المتوسطات المتحركة
     if curr_price > latest['SMA_20'] > latest['SMA_50']:
         score += 2
         reasons.append("السعر أعلى من المتوسطات المتحركة (20 و 50) مما يشير إلى اتجاه صاعد قوي.")
@@ -160,7 +159,6 @@ def run_ai_analysis(df):
     else:
         reasons.append("السعر يتحرك في نطاق عرضي متذبذب بين المتوسطات.")
 
-    # 2. تحليل مؤشر الزخم RSI
     if rsi < 35:
         score += 2
         reasons.append(f"مؤشر RSI عند ({rsi:.1f}) في منطقة تشبع بيعي شديد (السعر رخيص ومغري للشراء).")
@@ -170,7 +168,6 @@ def run_ai_analysis(df):
     else:
         reasons.append(f"مؤشر RSI متوازن في المنطقة المحايدة ({rsi:.1f}).")
 
-    # 3. نشاط سيولة الهوامير
     if latest['Whale_Activity']:
         score += 1.5
         reasons.append("تم رصد ضخ سيولة مفاجئة وعالية جداً من صانع السوق (دخول هوامير).")
@@ -182,7 +179,6 @@ def run_ai_analysis(df):
     fmt_sup = f"${support:,.5f}" if support < 1 else f"${support:,.2f}"
     fmt_res = f"${resistance:,.5f}" if resistance < 1 else f"${resistance:,.2f}"
 
-    # تحديد القرار ومستويات الصفقة
     if score >= 2:
         decision_title = f"🟢 مناسب دخول صفقة شراء عند السعر الحالي ({fmt_curr})"
         box_class = "ai-box-buy"
@@ -209,11 +205,13 @@ def run_ai_analysis(df):
 # -----------------------------------------------------------------------------
 # 6. التنفيذ وتوليد الواجهة
 # -----------------------------------------------------------------------------
-with st.spinner(f"جاري جلب البيانات وتحليل {ticker_symbol} بواسطة الذكاء الاصطناعي..."):
+with st.spinner(f"جاري جلب البيانات وتحليل {ticker_symbol}..."):
     df, error = fetch_market_data(ticker_symbol, period, interval)
 
 if error or df is None:
     st.error(f"⚠️ خطأ: {error}")
+    if st.button("🔄 إعادة محاولة الاتصال"):
+        st.rerun()
 else:
     df = calculate_indicators(df)
     latest = df.iloc[-1]
@@ -223,7 +221,6 @@ else:
     change_color = "#10b981" if price_change >= 0 else "#ef4444"
     change_icon = "▲" if price_change >= 0 else "▼"
     
-    # بطاقات المؤشرات الرقمية
     c1, c2, c3, c4 = st.columns(4)
     fmt_price = f"${latest['close']:,.5f}" if latest['close'] < 1 else f"${latest['close']:,.2f}"
     
@@ -240,9 +237,7 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # التنبيهات الفورية (Live Alerts)
-    # -------------------------------------------------------------------------
+    # التنبيهات الفورية
     if alert_whale and latest['Whale_Activity']:
         st.error("🚨 **تنبيه سيولة عاجل!** تم رصد قفزة استثنائية في حجم التداول (دخول صانع سوق/هامور).")
     
@@ -256,9 +251,7 @@ else:
         if latest['close'] > latest['SMA_20'] and prev['close'] <= prev['SMA_20']:
             st.info("🔄 **تنبيه تقاطع:** السعر اخترق المتوسط المتحرك 20 لأعلى.")
 
-    # -------------------------------------------------------------------------
-    # ملخص التوصية الذكية والقرار المباشر من الذكاء الاصطناعي
-    # -------------------------------------------------------------------------
+    # ملخص التوصية الذكية
     ai_title, reasons, box_class, fmt_sup, fmt_res, summary_note = run_ai_analysis(df)
 
     st.markdown(f"""
@@ -279,9 +272,7 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # الرسم البياني التفاعلي المتوسع
-    # -------------------------------------------------------------------------
+    # الرسم البياني
     fig = make_subplots(
         rows=2, cols=1, 
         shared_xaxes=True, 
